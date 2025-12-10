@@ -87,6 +87,29 @@ const ChatRoom = () => {
 
   const user = JSON.parse(localStorage.getItem('user')) || { username: 'Anonymous' };
   const userId = localStorage.getItem('educonnect-user-id') || `user-${Date.now()}`;
+  
+  // Get deleted messages from localStorage
+  const getDeletedMessages = () => {
+    try {
+      const deleted = localStorage.getItem(`deleted-messages-${roomCode}`);
+      return deleted ? JSON.parse(deleted) : [];
+    } catch {
+      return [];
+    }
+  };
+  
+  // Save deleted message to localStorage
+  const saveDeletedMessage = (messageId) => {
+    try {
+      const deleted = getDeletedMessages();
+      if (!deleted.includes(messageId)) {
+        deleted.push(messageId);
+        localStorage.setItem(`deleted-messages-${roomCode}`, JSON.stringify(deleted));
+      }
+    } catch (error) {
+      console.error('Failed to save deleted message:', error);
+    }
+  };
 
   useEffect(() => {
     // Initialize Yjs document and provider
@@ -199,8 +222,6 @@ const ChatRoom = () => {
     const messagesArray = yMessages.toArray();
     const index = messagesArray.findIndex(msg => msg.id === messageId);
     
-    console.log('Found at index:', index, 'Total messages:', messagesArray.length);
-    
     if (index !== -1) {
       const message = messagesArray[index];
       const deletedMessage = {
@@ -219,7 +240,6 @@ const ChatRoom = () => {
       // Replace with deleted message placeholder
       yMessages.delete(index, 1);
       yMessages.insert(index, [deletedMessage]);
-      console.log('Message deleted for everyone');
     }
     setActiveMenu(null);
   };
@@ -227,22 +247,15 @@ const ChatRoom = () => {
   const handleDeleteForMe = (messageId) => {
     if (!ydocRef.current) return;
     
-    console.log('Deleting for me:', messageId);
     const yMessages = ydocRef.current.getArray('messages');
     const messagesArray = yMessages.toArray();
-    
-    console.log('All messages:', messagesArray.map(m => ({ id: m.id, text: m.text })));
-    
     const index = messagesArray.findIndex(msg => msg.id === messageId);
-    
-    console.log('Found at index:', index);
     
     if (index !== -1) {
       const message = messagesArray[index];
       
       // Check if already deleted for this user
       if (message.deletedForMe?.includes(userId)) {
-        console.log('Already deleted for this user');
         setActiveMenu(null);
         return;
       }
@@ -252,14 +265,12 @@ const ChatRoom = () => {
         deletedForMe: [...(message.deletedForMe || []), userId]
       };
       
-      console.log('Updating message with deletedForMe:', updatedMessage);
-      
       // Replace the message with updated deletedForMe array
       yMessages.delete(index, 1);
       yMessages.insert(index, [updatedMessage]);
-      console.log('Message deleted for me, new deletedForMe:', updatedMessage.deletedForMe);
-    } else {
-      console.log('Message not found! ID:', messageId);
+      
+      // Save to localStorage for persistence
+      saveDeletedMessage(messageId);
     }
     setActiveMenu(null);
   };
@@ -310,9 +321,10 @@ const ChatRoom = () => {
           <AnimatePresence>
             {messages
               .filter(msg => {
-                // Keep messages that are NOT deleted for this user
-                const isDeletedForMe = msg.deletedForMe?.includes(userId);
-                return !isDeletedForMe; // Return true to KEEP the message
+                // Filter out messages deleted for this user (from Yjs or localStorage)
+                const deletedInYjs = msg.deletedForMe?.includes(userId);
+                const deletedInStorage = getDeletedMessages().includes(msg.id);
+                return !deletedInYjs && !deletedInStorage;
               })
               .map((msg, idx) => {
               const isSelf = msg.senderId === userId;
@@ -349,9 +361,8 @@ const ChatRoom = () => {
                         {msg.text}
                       </div>
                       
-                      {/* Delete Menu - Only show for sender's messages and not deleted */}
-                      {isSelf && !msg.deletedForEveryone && (
-                        <div className="relative delete-menu-container">
+                      {/* Delete Menu - Show for all messages */}
+                      <div className="relative delete-menu-container">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -370,7 +381,7 @@ const ChatRoom = () => {
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.9 }}
                               transition={{ duration: 0.1 }}
-                              className="absolute right-0 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[9999] w-52"
+                              className={`absolute ${isSelf ? 'right-0' : 'left-0'} top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[9999] w-52`}
                             >
                               <button
                                 type="button"
@@ -384,23 +395,27 @@ const ChatRoom = () => {
                                 <Trash2 size={16} />
                                 <span>Delete for me</span>
                               </button>
-                              <div className="border-t border-white/5"></div>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteForEveryone(msg.id);
-                                }}
-                                className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-3"
-                              >
-                                <Trash2 size={16} />
-                                <span>Delete for everyone</span>
-                              </button>
+                              {/* Only show "Delete for everyone" if you're the sender and not already deleted */}
+                              {isSelf && !msg.deletedForEveryone && (
+                                <>
+                                  <div className="border-t border-white/5"></div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleDeleteForEveryone(msg.id);
+                                    }}
+                                    className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-3"
+                                  >
+                                    <Trash2 size={16} />
+                                    <span>Delete for everyone</span>
+                                  </button>
+                                </>
+                              )}
                             </motion.div>
                           )}
                         </div>
-                      )}
                     </div>
                     <span className="text-[10px] text-zinc-600 px-2">
                       {msg.deletedForEveryone 
