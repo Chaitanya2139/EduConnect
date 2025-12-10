@@ -1,12 +1,14 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import Layout from '../Layout';
-import Editor from '../components/Editor'; // We will simplify this next
-import RoomSidebar from '../components/RoomSidebar'; // We will enable chat here
-import { useCollaboration } from '../hooks/useCollaboration'; // Import the new hook
+import Editor from '../components/Editor';
+import RoomSidebar from '../components/RoomSidebar';
+import { useCollaboration } from '../hooks/useCollaboration';
 
 const ProjectRoom = () => {
   const { roomId } = useParams();
+  const navigate = useNavigate();
   const { provider, ydoc, isReady } = useCollaboration(roomId || 'default');
 
   if (!isReady || !provider || !ydoc) {
@@ -27,13 +29,24 @@ const ProjectRoom = () => {
         {/* LEFT: Editor (receives shared doc) */}
         <div className="flex-1 flex flex-col h-full min-w-0">
           <div className="flex items-center justify-between mb-6 px-2">
-            <div>
-               <h1 className="text-2xl font-bold text-white mb-1 capitalize">
-                 {roomId?.replace(/-/g, ' ') || 'Untitled Project'}
-               </h1>
-               <div className="flex items-center gap-2 text-sm text-zinc-400">
-                 <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
-                 Live Collaboration
+            <div className="flex items-center gap-4">
+               {/* Back Button */}
+               <button 
+                 onClick={() => navigate('/')}
+                 className="p-2 rounded-full bg-zinc-800/50 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors border border-white/5"
+                 title="Back to Dashboard"
+               >
+                 <ArrowLeft size={20} />
+               </button>
+               
+               <div>
+                 <h1 className="text-2xl font-bold text-white mb-1 capitalize">
+                   {roomId?.replace(/-/g, ' ') || 'Untitled Project'}
+                 </h1>
+                 <div className="flex items-center gap-2 text-sm text-zinc-400">
+                   <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
+                   Live Collaboration
+                 </div>
                </div>
             </div>
             {/* Avatars placeholder */}
