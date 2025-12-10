@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Users, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Send, Users, Copy, Check, MoreVertical, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
@@ -80,6 +80,7 @@ const ChatRoom = () => {
   const [newMessage, setNewMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(1);
+  const [activeMenu, setActiveMenu] = useState(null);
   const chatEndRef = useRef(null);
   const providerRef = useRef(null);
   const ydocRef = useRef(null);
@@ -97,12 +98,48 @@ const ChatRoom = () => {
 
     const yMessages = ydoc.getArray('messages');
     
-    // Load initial messages
-    setMessages(yMessages.toArray());
+    // Load initial messages and ensure they have IDs
+    const initialMessages = yMessages.toArray().map((msg, idx) => {
+      if (!msg.id) {
+        return {
+          ...msg,
+          id: `existing-${idx}-${Date.now()}`
+        };
+      }
+      return msg;
+    });
+    
+    // If we added IDs to old messages, update the array
+    if (initialMessages.some((msg, idx) => msg.id !== yMessages.toArray()[idx]?.id)) {
+      yMessages.delete(0, yMessages.length);
+      yMessages.push(initialMessages);
+    }
+    
+    setMessages(initialMessages);
 
     // Listen for updates
     const observer = () => {
-      setMessages(yMessages.toArray());
+      const messagesArray = yMessages.toArray();
+      let needsUpdate = false;
+      
+      const updatedMessages = messagesArray.map((msg, idx) => {
+        if (!msg.id) {
+          needsUpdate = true;
+          return {
+            ...msg,
+            id: `msg-${idx}-${Date.now()}`
+          };
+        }
+        return msg;
+      });
+      
+      // If we added IDs, update the Yjs array so IDs persist
+      if (needsUpdate) {
+        yMessages.delete(0, yMessages.length);
+        yMessages.push(updatedMessages);
+      }
+      
+      setMessages(updatedMessages);
     };
     
     yMessages.observe(observer);
@@ -118,6 +155,23 @@ const ChatRoom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click is outside any delete menu
+      if (!event.target.closest('.delete-menu-container')) {
+        setActiveMenu(null);
+      }
+    };
+
+    if (activeMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
+    }
+  }, [activeMenu]);
+
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !ydocRef.current) return;
@@ -125,14 +179,89 @@ const ChatRoom = () => {
     const yMessages = ydocRef.current.getArray('messages');
     
     yMessages.push([{
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       text: newMessage,
       sender: user.username,
       senderId: userId,
       timestamp: Date.now(),
-      color: user.color || '#3b82f6'
+      color: user.color || '#3b82f6',
+      deletedForMe: [] // Array of userIds who deleted this for themselves
     }]);
     
     setNewMessage('');
+  };
+
+  const handleDeleteForEveryone = (messageId) => {
+    if (!ydocRef.current) return;
+    
+    console.log('Deleting for everyone:', messageId);
+    const yMessages = ydocRef.current.getArray('messages');
+    const messagesArray = yMessages.toArray();
+    const index = messagesArray.findIndex(msg => msg.id === messageId);
+    
+    console.log('Found at index:', index, 'Total messages:', messagesArray.length);
+    
+    if (index !== -1) {
+      const message = messagesArray[index];
+      const deletedMessage = {
+        id: message.id,
+        text: "🚫 This message was deleted",
+        sender: message.sender,
+        senderId: message.senderId,
+        timestamp: message.timestamp,
+        color: message.color,
+        deletedForEveryone: true,
+        deletedBy: user.username,
+        deletedAt: Date.now(),
+        deletedForMe: message.deletedForMe || []
+      };
+      
+      // Replace with deleted message placeholder
+      yMessages.delete(index, 1);
+      yMessages.insert(index, [deletedMessage]);
+      console.log('Message deleted for everyone');
+    }
+    setActiveMenu(null);
+  };
+
+  const handleDeleteForMe = (messageId) => {
+    if (!ydocRef.current) return;
+    
+    console.log('Deleting for me:', messageId);
+    const yMessages = ydocRef.current.getArray('messages');
+    const messagesArray = yMessages.toArray();
+    
+    console.log('All messages:', messagesArray.map(m => ({ id: m.id, text: m.text })));
+    
+    const index = messagesArray.findIndex(msg => msg.id === messageId);
+    
+    console.log('Found at index:', index);
+    
+    if (index !== -1) {
+      const message = messagesArray[index];
+      
+      // Check if already deleted for this user
+      if (message.deletedForMe?.includes(userId)) {
+        console.log('Already deleted for this user');
+        setActiveMenu(null);
+        return;
+      }
+      
+      const updatedMessage = {
+        ...message,
+        deletedForMe: [...(message.deletedForMe || []), userId]
+      };
+      
+      console.log('Updating message with deletedForMe:', updatedMessage);
+      
+      // Replace the message with updated deletedForMe array
+      yMessages.delete(index, 1);
+      yMessages.insert(index, [updatedMessage]);
+      console.log('Message deleted for me, new deletedForMe:', updatedMessage.deletedForMe);
+    } else {
+      console.log('Message not found! ID:', messageId);
+    }
+    setActiveMenu(null);
   };
 
   const copyRoomCode = () => {
@@ -179,14 +308,23 @@ const ChatRoom = () => {
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <AnimatePresence>
-            {messages.map((msg, idx) => {
+            {messages
+              .filter(msg => {
+                // Keep messages that are NOT deleted for this user
+                const isDeletedForMe = msg.deletedForMe?.includes(userId);
+                return !isDeletedForMe; // Return true to KEEP the message
+              })
+              .map((msg, idx) => {
               const isSelf = msg.senderId === userId;
+              const isMenuOpen = activeMenu === msg.id;
+              
               return (
                 <motion.div
-                  key={idx}
+                  key={msg.id || idx}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : ''}`}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : ''} group`}
                 >
                   <div 
                     className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white"
@@ -194,21 +332,81 @@ const ChatRoom = () => {
                   >
                     {msg.sender?.charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex flex-col gap-1 max-w-[70%]">
+                  <div className="flex flex-col gap-1 max-w-[70%] relative">
                     {!isSelf && (
                       <span className="text-xs text-zinc-500 px-2">{msg.sender}</span>
                     )}
-                    <div
-                      className={`p-3 rounded-2xl text-sm ${
-                        isSelf
-                          ? 'bg-blue-600 text-white rounded-tr-none'
-                          : 'bg-zinc-800 text-zinc-300 rounded-tl-none border border-white/5'
-                      }`}
-                    >
-                      {msg.text}
+                    <div className="flex items-start gap-2">
+                      <div
+                        className={`p-3 rounded-2xl text-sm ${
+                          msg.deletedForEveryone
+                            ? 'bg-zinc-800/50 text-zinc-500 italic border border-white/5'
+                            : isSelf
+                            ? 'bg-blue-600 text-white rounded-tr-none'
+                            : 'bg-zinc-800 text-zinc-300 rounded-tl-none border border-white/5'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      
+                      {/* Delete Menu - Only show for sender's messages and not deleted */}
+                      {isSelf && !msg.deletedForEveryone && (
+                        <div className="relative delete-menu-container">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveMenu(prev => prev === msg.id ? null : msg.id);
+                            }}
+                            className={`${isMenuOpen ? 'opacity-100 bg-zinc-800' : 'opacity-0 group-hover:opacity-100'} p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-all`}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+                          
+                          {isMenuOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.9 }}
+                              transition={{ duration: 0.1 }}
+                              className="absolute right-0 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[9999] w-52"
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteForMe(msg.id);
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center gap-3"
+                              >
+                                <Trash2 size={16} />
+                                <span>Delete for me</span>
+                              </button>
+                              <div className="border-t border-white/5"></div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteForEveryone(msg.id);
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-3"
+                              >
+                                <Trash2 size={16} />
+                                <span>Delete for everyone</span>
+                              </button>
+                            </motion.div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <span className="text-[10px] text-zinc-600 px-2">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
+                      {msg.deletedForEveryone 
+                        ? `Deleted by ${msg.deletedBy}`
+                        : new Date(msg.timestamp).toLocaleTimeString()
+                      }
                     </span>
                   </div>
                 </motion.div>
@@ -217,7 +415,7 @@ const ChatRoom = () => {
             <div ref={chatEndRef} />
           </AnimatePresence>
           
-          {messages.length === 0 && (
+          {messages.filter(msg => !msg.deletedForMe?.includes(userId)).length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500">
               <Users size={48} className="mb-4 opacity-20" />
               <p className="text-lg font-medium">No messages yet</p>
