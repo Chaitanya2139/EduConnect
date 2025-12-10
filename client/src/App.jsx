@@ -1,19 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import SpotlightCard from './components/SpotlightCard';
-import ProjectRoom from './pages/ProjectRoom'; // Make sure this path is correct
+import ProjectRoom from './pages/ProjectRoom'; 
 import { ArrowUpRight, Users, Clock } from 'lucide-react';
 
-function App() {
-  // This state controls which page you see
-  const [view, setView] = useState('dashboard');
+// 1. Dashboard Component (Extracted so we can use the useNavigate hook)
+const Dashboard = () => {
+  const navigate = useNavigate();
 
-  // If view is 'room', show the Editor page
-  if (view === 'room') {
-    return <ProjectRoom />;
-  }
-
-  // Otherwise, show the Dashboard
   return (
     <Layout>
       <div className="max-w-6xl mx-auto space-y-8">
@@ -34,11 +29,11 @@ function App() {
         {/* Grid Layout */}
         <div className="grid grid-cols-12 gap-6">
           
-          {/* Main Active Project - CLICK THIS TO ENTER ROOM */}
+          {/* Main Active Project - Navigates to System Architecture Room */}
           <div className="col-span-12 md:col-span-8 h-full">
             <SpotlightCard 
               className="h-full p-8 group cursor-pointer relative min-h-[400px]" 
-              onClick={() => setView('room')} // <--- The Trigger
+              onClick={() => navigate('/room/system-architecture')} // <--- Dynamic Routing Trigger
             >
               <div className="absolute top-6 right-6 p-2 rounded-full bg-zinc-800/50 text-zinc-400 group-hover:bg-white group-hover:text-black transition-colors">
                 <ArrowUpRight size={20} />
@@ -67,7 +62,7 @@ function App() {
             </SpotlightCard>
           </div>
 
-          {/* Side Stats */}
+          {/* Side Stats & Secondary Navigation */}
           <div className="col-span-12 md:col-span-4 space-y-6">
             <SpotlightCard className="p-6">
               <div className="flex items-center gap-3 mb-2 text-zinc-400">
@@ -76,10 +71,13 @@ function App() {
               <div className="text-4xl font-semibold">24.5<span className="text-lg text-zinc-600 font-normal">h</span></div>
             </SpotlightCard>
 
-            <SpotlightCard className="p-6 flex-1 flex flex-col justify-between min-h-[200px]">
+            <SpotlightCard 
+              className="p-6 flex-1 flex flex-col justify-between min-h-[200px] cursor-pointer"
+              onClick={() => navigate('/room/react-notes')} // <--- Navigates to a DIFFERENT room
+            >
               <div>
                 <div className="flex items-center gap-3 mb-2 text-zinc-400">
-                  <Users size={18} /> <span className="text-sm font-medium">Team Chat</span>
+                  <Users size={18} /> <span className="text-sm font-medium">Quick Notes</span>
                 </div>
                 <div className="space-y-3 mt-4">
                    <div className="flex items-center gap-3">
@@ -89,14 +87,27 @@ function App() {
                 </div>
               </div>
               <button className="w-full mt-4 py-2 text-xs font-medium border border-zinc-700 rounded hover:bg-zinc-800 transition-colors">
-                Open Chat
+                Open React Notes
               </button>
             </SpotlightCard>
           </div>
         </div>
       </div>
     </Layout>
-  )
+  );
+};
+
+// 2. Main App Component (Wraps everything in Router)
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        {/* The :roomId parameter makes the URL dynamic */}
+        <Route path="/room/:roomId" element={<ProjectRoom />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

@@ -1,41 +1,56 @@
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import Layout from '../Layout';
-import Editor from '../components/Editor';
-import { Users, Video, Mic, Share } from 'lucide-react';
+import Editor from '../components/Editor'; // We will simplify this next
+import RoomSidebar from '../components/RoomSidebar'; // We will enable chat here
+import { useCollaboration } from '../hooks/useCollaboration'; // Import the new hook
 
 const ProjectRoom = () => {
+  const { roomId } = useParams();
+  const { provider, ydoc, isReady } = useCollaboration(roomId || 'default');
+
+  if (!isReady || !provider || !ydoc) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-full text-zinc-500 gap-3">
+          <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+          Connecting to secure room...
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
-      <div className="h-full flex flex-col">
-        {/* Room Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-             <h1 className="text-2xl font-bold text-white mb-1">System Architecture Design</h1>
-             <div className="flex items-center gap-2 text-sm text-zinc-400">
-               <span className="w-2 h-2 rounded-full bg-green-500" />
-               3 Members Online
-             </div>
+      <div className="h-full flex gap-4">
+        
+        {/* LEFT: Editor (receives shared doc) */}
+        <div className="flex-1 flex flex-col h-full min-w-0">
+          <div className="flex items-center justify-between mb-6 px-2">
+            <div>
+               <h1 className="text-2xl font-bold text-white mb-1 capitalize">
+                 {roomId?.replace(/-/g, ' ') || 'Untitled Project'}
+               </h1>
+               <div className="flex items-center gap-2 text-sm text-zinc-400">
+                 <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
+                 Live Collaboration
+               </div>
+            </div>
+            {/* Avatars placeholder */}
+            <div className="flex -space-x-2">
+               {[1,2].map(i => <div key={i} className="w-8 h-8 rounded-full bg-zinc-700 border-2 border-black" />)}
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-             {/* Fake Avatars */}
-             <div className="flex -space-x-2 mr-4">
-                <div className="w-8 h-8 rounded-full bg-blue-500 border-2 border-black" />
-                <div className="w-8 h-8 rounded-full bg-purple-500 border-2 border-black" />
-             </div>
-             
-             <button className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors"><Mic size={20} /></button>
-             <button className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors"><Video size={20} /></button>
-             <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-500 flex items-center gap-2">
-                <Share size={16} /> Share
-             </button>
+          <div className="flex-1 bg-zinc-900/30 rounded-[2rem] border border-white/5 p-1 relative overflow-hidden shadow-inner backdrop-blur-sm">
+             {/* Pass provider down */}
+             <Editor provider={provider} ydoc={ydoc} />
           </div>
         </div>
 
-        {/* The Editor Canvas */}
-        <div className="flex-1 bg-zinc-900/30 rounded-2xl border border-white/5 p-1 relative overflow-hidden shadow-inner">
-           <Editor />
-        </div>
+        {/* RIGHT: Chat (receives shared doc) */}
+        <RoomSidebar provider={provider} ydoc={ydoc} />
+        
       </div>
     </Layout>
   );

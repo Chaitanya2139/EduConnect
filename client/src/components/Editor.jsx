@@ -245,45 +245,49 @@ const TiptapEditor = ({ ydoc, provider }) => {
 };
 
 // --- Main Wrapper ---
-const Editor = () => {
+const Editor = ({ roomId = 'default-room' }) => {
   const [isReady, setIsReady] = useState(false);
   const [renderKey, setRenderKey] = useState(0);
   const providerRef = useRef(null);
   const ydocRef = useRef(null);
   const isInitializedRef = useRef(false);
 
-  // Initialize once
+  // Initialize once or when roomId changes
   useEffect(() => {
-    // Skip if already initialized
-    if (isInitializedRef.current) {
-      return;
-    }
+    // Reset state if roomId changes
+    isInitializedRef.current = false;
+    setIsReady(false);
     
-    isInitializedRef.current = true;
+    // Cleanup previous connection if it exists
+    if (providerRef.current) {
+      providerRef.current.destroy();
+      providerRef.current = null;
+    }
+    if (ydocRef.current) {
+      ydocRef.current.destroy();
+      ydocRef.current = null;
+    }
 
     const doc = new Y.Doc();
+    
+    // USE THE DYNAMIC ROOM ID HERE
     const provider = new SimpleWebsocketProvider(
       'ws://localhost:1234',
-      'edu-connect-room-1',
+      roomId,
       doc
     );
     
     providerRef.current = provider;
     ydocRef.current = doc;
+    isInitializedRef.current = true;
     
     // Set ready after connection
     setTimeout(() => {
       setIsReady(true);
     }, 500);
 
-    // Cleanup - but DON'T destroy in Strict Mode double-invoke
+    // Cleanup
     return () => {
-      // Only destroy if this is a real unmount (not Strict Mode)
-      // We check if the ref is still initialized
-      if (isInitializedRef.current) {
-        return;
-      }
-      
       if (providerRef.current) {
         providerRef.current.destroy();
       }
@@ -291,16 +295,21 @@ const Editor = () => {
         ydocRef.current.destroy();
       }
     };
-  }, []); // Empty deps - run once
+  }, [roomId]); // Re-run when roomId changes
 
   const provider = providerRef.current;
   const ydoc = ydocRef.current;
 
   if (!isReady || !ydoc || !provider) {
-    return <div className="p-8 text-zinc-500 animate-pulse">Connecting to collaboration server...</div>;
+    return (
+      <div className="flex items-center justify-center h-full text-zinc-500 gap-3">
+        <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+        Connecting to {roomId}...
+      </div>
+    );
   }
 
-  return <TiptapEditor key={renderKey} ydoc={ydoc} provider={provider} />;
+  return <TiptapEditor key={renderKey + roomId} ydoc={ydoc} provider={provider} />;
 };
 
 export default Editor;
