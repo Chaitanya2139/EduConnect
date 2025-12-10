@@ -5,15 +5,25 @@ import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
 import * as Y from 'yjs';
 import { Bold, Italic, Code, List, ListOrdered, Quote, Undo, Redo } from 'lucide-react';
+import * as awarenessProtocol from 'y-protocols/awareness';
 
-// Simple WebSocket Provider for Yjs
+// WebSocket Provider for Yjs with proper Awareness
 class SimpleWebsocketProvider {
-  constructor(url, roomName, doc) {
+  constructor(url, roomName, doc, { awareness = new awarenessProtocol.Awareness(doc) } = {}) {
     this.url = url;
     this.roomName = roomName;
     this.doc = doc;
+    this.document = doc; // CollaborationCursor looks for .document
+    this.awareness = awareness;
+    
+    // CRITICAL: Set doc on awareness BEFORE anything else
+    // CollaborationCursor accesses provider.awareness.doc during init
+    if (this.awareness) {
+      this.awareness.doc = doc;
+      this.awareness.document = doc;
+    }
+    
     this.ws = null;
-    this.awareness = { getStates: () => new Map() }; // Mock awareness
     this.connected = false;
     this.shouldConnect = true;
     this.connect();
@@ -21,11 +31,23 @@ class SimpleWebsocketProvider {
     // Listen for document updates and send to server
     this.updateHandler = (update, origin) => {
       if (origin !== this && this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(update);
+        const message = new Uint8Array([0, ...update]);
+        this.ws.send(message);
+      }
+    };
+    
+    // Listen for awareness updates
+    this.awarenessUpdateHandler = ({ added, updated, removed }, origin) => {
+      const changedClients = added.concat(updated).concat(removed);
+      const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(this.awareness, changedClients);
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        const message = new Uint8Array([1, ...awarenessUpdate]);
+        this.ws.send(message);
       }
     };
     
     this.doc.on('update', this.updateHandler);
+    this.awareness.on('update', this.awarenessUpdateHandler);
   }
   
   connect() {
@@ -41,11 +63,31 @@ class SimpleWebsocketProvider {
     };
     
     this.ws.onmessage = (event) => {
+      const data = new Uint8Array(event.data);
+      
+      if (data.length === 0) return;
+      
       try {
-        const update = new Uint8Array(event.data);
-        Y.applyUpdate(this.doc, update, this);
+        const messageType = data[0];
+        
+        if (messageType === 0) {
+          // Document update
+          const update = data.slice(1);
+          if (update.length > 0) {
+            Y.applyUpdate(this.doc, update, this);
+          }
+        } else if (messageType === 1) {
+          // Awareness update
+          const awarenessUpdate = data.slice(1);
+          if (awarenessUpdate.length > 0) {
+            awarenessProtocol.applyAwarenessUpdate(this.awareness, awarenessUpdate, this);
+          }
+        }
       } catch (error) {
-        console.error('Error applying update:', error);
+        // Silently ignore malformed messages
+        if (data[0] === 0) {
+          console.error('Error applying document update:', error);
+        }
       }
     };
     
@@ -71,11 +113,12 @@ class SimpleWebsocketProvider {
         this.ws.close(1000, 'Client closing');
       }
     }
+    this.awareness.off('update', this.awarenessUpdateHandler);
     this.doc.off('update', this.updateHandler);
   }
 }
 
-// --- Toolbar Component (Unchanged) ---
+// --- Toolbar Component ---
 const MenuBar = ({ editor }) => {
   if (!editor) return null;
 
@@ -119,13 +162,35 @@ const MenuBar = ({ editor }) => {
 const TiptapEditor = ({ ydoc, provider }) => {
   const getRandomColor = () => ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'][Math.floor(Math.random() * 7)];
   const userColor = useMemo(() => getRandomColor(), []);
+  // Use client ID to create unique user names
+  const userName = useMemo(() => `User ${ydoc.clientID}`, [ydoc]);
   const [peerCount, setPeerCount] = useState(0);
 
-  // Monitor peer connections for real-time collaboration feedback
-  // Monitor peer connections - simplified since we don't have full awareness
+  // Validate provider setup before rendering
+  if (!provider || !provider.awareness || !provider.awareness.doc) {
+    console.error('Provider not properly initialized:', { 
+      hasProvider: !!provider, 
+      hasAwareness: !!provider?.awareness,
+      hasDoc: !!provider?.awareness?.doc 
+    });
+    return <div className="p-8 text-red-500">Error: Collaboration provider not initialized</div>;
+  }
+
+  // Monitor peer connections using awareness
   useEffect(() => {
-    // For now, just set peerCount to 0 since our simple provider doesn't track peers
-    setPeerCount(0);
+    if (!provider || !provider.awareness) return;
+
+    const updatePeerCount = () => {
+      const states = provider.awareness.getStates();
+      setPeerCount(states.size - 1); // Subtract self
+    };
+
+    provider.awareness.on('change', updatePeerCount);
+    updatePeerCount();
+
+    return () => {
+      provider.awareness.off('change', updatePeerCount);
+    };
   }, [provider]);
 
   const editor = useEditor({
@@ -136,15 +201,13 @@ const TiptapEditor = ({ ydoc, provider }) => {
       Collaboration.configure({
         document: ydoc,
       }),
-      // CollaborationCursor has a bug with provider initialization
-      // The editor works fine without it - you just won't see other users' cursors
-      // CollaborationCursor.configure({
-      //   provider,
-      //   user: {
-      //     name: 'Chaitanya',
-      //     color: userColor,
-      //   },
-      // }),
+      CollaborationCursor.configure({
+        provider,
+        user: {
+          name: userName,
+          color: userColor,
+        },
+      }),
     ],
     editorProps: {
       attributes: {
@@ -154,7 +217,7 @@ const TiptapEditor = ({ ydoc, provider }) => {
     onCreate: ({ editor }) => {
       // Editor created successfully
     },
-  }, [ydoc, provider]);
+  }, [ydoc, provider, userName, userColor]);
 
   return (
     <div className="flex flex-col h-full relative">
