@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, BookOpen, MessageSquare, Settings, LogOut, 
@@ -24,8 +25,10 @@ const SidebarSection = ({ title, children, collapsed }) => (
   </div>
 );
 
-const SidebarItem = ({ icon: Icon, label, active, badge, collapsed }) => (
-  <div className={`
+const SidebarItem = ({ icon: Icon, label, active, badge, collapsed, onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`
     relative flex items-center gap-3 px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-all duration-300 group
     ${active 
       ? 'bg-white/10 text-white shadow-[0_0_20px_rgba(0,0,0,0.2)]' 
@@ -64,6 +67,8 @@ const SidebarItem = ({ icon: Icon, label, active, badge, collapsed }) => (
 
 const Layout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user')) || { username: 'Guest', email: 'guest@educonnect.com' };
 
   return (
     <div className="flex h-screen w-full bg-black overflow-hidden p-4 gap-4 font-sans selection:bg-blue-500/30">
@@ -106,7 +111,7 @@ const Layout = ({ children }) => {
           <SidebarSection title="Overview" collapsed={collapsed}>
             <SidebarItem icon={Home} label="Dashboard" active collapsed={collapsed} />
             <SidebarItem icon={Calendar} label="Schedule" badge="2" collapsed={collapsed} />
-            <SidebarItem icon={MessageSquare} label="Messages" collapsed={collapsed} />
+            <SidebarItem icon={MessageSquare} label="Messages" collapsed={collapsed} onClick={() => navigate('/join-chat')} />
           </SidebarSection>
 
           <SidebarSection title="My Learning" collapsed={collapsed}>
@@ -138,8 +143,8 @@ const Layout = ({ children }) => {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-black border border-white/10 shrink-0" />
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                   <div className="text-sm font-medium text-white truncate">Chaitanya A.</div>
-                   <div className="text-xs text-zinc-500 truncate">Pro Account</div>
+                   <div className="text-sm font-medium text-white truncate">{user.username}</div>
+                   <div className="text-xs text-zinc-500 truncate">{user.email}</div>
                 </div>
               )}
               {!collapsed && <Settings size={16} className="text-zinc-500" />}

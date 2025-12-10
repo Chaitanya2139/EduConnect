@@ -23,6 +23,9 @@ const RoomSidebar = ({ ydoc, provider }) => {
   };
   
   const userId = useRef(getUserId()).current;
+  
+  // Get authenticated user info
+  const user = JSON.parse(localStorage.getItem('user')) || { username: `User ${userId.slice(-4)}` };
 
   useEffect(() => {
     if (!ydoc) return;
@@ -54,10 +57,10 @@ const RoomSidebar = ({ ydoc, provider }) => {
 
     const yMessages = ydoc.getArray('chat-messages');
     
-    // Add message to shared array with persistent user ID
+    // Add message to shared array with persistent user ID and username
     yMessages.push([{
       text: newMessage,
-      sender: `User ${userId.slice(-4)}`, // Show last 4 chars of ID
+      sender: user.username, // Use real username from localStorage
       senderId: userId, // Use persistent user ID instead of client ID
       timestamp: Date.now()
     }]);

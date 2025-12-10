@@ -160,10 +160,12 @@ const MenuBar = ({ editor }) => {
 
 // --- Tiptap Editor Instance ---
 const TiptapEditor = ({ ydoc, provider }) => {
-  const getRandomColor = () => ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'][Math.floor(Math.random() * 7)];
-  const userColor = useMemo(() => getRandomColor(), []);
-  // Use client ID to create unique user names
-  const userName = useMemo(() => `User ${ydoc.clientID}`, [ydoc]);
+  // Get authenticated user from localStorage
+  const user = JSON.parse(localStorage.getItem('user')) || { 
+    username: `User ${ydoc.clientID}`, 
+    color: ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'][Math.floor(Math.random() * 7)]
+  };
+
   const [peerCount, setPeerCount] = useState(0);
 
   // Validate provider setup before rendering
@@ -204,8 +206,8 @@ const TiptapEditor = ({ ydoc, provider }) => {
       CollaborationCursor.configure({
         provider,
         user: {
-          name: userName,
-          color: userColor,
+          name: user.username,  // <--- USE REAL NAME from localStorage
+          color: user.color,    // <--- USE REAL COLOR from localStorage
         },
       }),
     ],
@@ -217,7 +219,7 @@ const TiptapEditor = ({ ydoc, provider }) => {
     onCreate: ({ editor }) => {
       // Editor created successfully
     },
-  }, [ydoc, provider, userName, userColor]);
+  }, [ydoc, provider, user.username, user.color]);
 
   return (
     <div className="flex flex-col h-full relative">

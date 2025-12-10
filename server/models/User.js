@@ -1,22 +1,10 @@
 const mongoose = require('mongoose');
 
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+const UserSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['Student', 'Instructor', 'TA'], 
-    default: 'Student' 
-  },
-  // "Crazy" Feature: Gamification badges for the dashboard
-  badges: [{ 
-    title: String, 
-    icon: String, 
-    awardedAt: Date 
-  }],
-  // Track which courses they are actively viewing for "Who's Online" features
-  activeSessionId: { type: String, default: null } 
+  avatarColor: { type: String, default: '#3b82f6' } // Store a unique color for their cursor
 }, { timestamps: true });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('User', UserSchema);

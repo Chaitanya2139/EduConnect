@@ -1,13 +1,26 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Layout from './Layout';
 import SpotlightCard from './components/SpotlightCard';
 import ProjectRoom from './pages/ProjectRoom'; 
+import Login from './pages/Login';
+import JoinChat from './pages/JoinChat';
+import ChatRoom from './pages/ChatRoom';
 import { ArrowUpRight, Users, Clock } from 'lucide-react';
+
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
 
 // 1. Dashboard Component (Extracted so we can use the useNavigate hook)
 const Dashboard = () => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user')) || { username: 'Guest' };
 
   return (
     <Layout>
@@ -17,7 +30,7 @@ const Dashboard = () => {
         <div className="flex items-end justify-between">
           <div>
             <h1 className="text-4xl font-medium tracking-tight mb-2">
-              Good afternoon, <span className="text-zinc-400">Chaitanya.</span>
+              Good afternoon, <span className="text-zinc-400">{user.username}.</span>
             </h1>
             <p className="text-zinc-500">You have 2 upcoming group sessions today.</p>
           </div>
@@ -102,9 +115,13 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         {/* The :roomId parameter makes the URL dynamic */}
-        <Route path="/room/:roomId" element={<ProjectRoom />} />
+        <Route path="/room/:roomId" element={<ProtectedRoute><ProjectRoom /></ProtectedRoute>} />
+        {/* Chat Room Routes */}
+        <Route path="/join-chat" element={<ProtectedRoute><JoinChat /></ProtectedRoute>} />
+        <Route path="/chat/:roomCode" element={<ProtectedRoute><ChatRoom /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
