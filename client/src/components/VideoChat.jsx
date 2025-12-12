@@ -15,6 +15,12 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
   const peerInstance = useRef(null);
   const myPeerIdRef = useRef(null); // Store my peer ID in a ref
   const peersRef = useRef({}); // Use ref to track peers to avoid stale closure
+  const myStreamRef = useRef(null); // Ref to always have current stream
+
+  // Keep stream ref in sync with state
+  useEffect(() => {
+    myStreamRef.current = myStream;
+  }, [myStream]);
 
   // 1. Initialize PeerJS & Get Local Stream
   useEffect(() => {
@@ -31,7 +37,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
           peerInstance.current = peer;
 
           peer.on('open', (id) => {
-            console.log('My Peer ID:', id);
             myPeerIdRef.current = id; // Store in ref
             
             // Store provider globally for participants view
@@ -51,7 +56,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
                     activePeerIds.push(state.peerId);
                   }
                 });
-                console.log('Initial peer scan found:', activePeerIds);
               }, 500);
             }
           });
@@ -60,18 +64,13 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
           peer.on('call', (call) => {
             const remotePeerId = call.peer;
             
-            // Answer with current stream (might be null initially)
-            if (myStream) {
-              call.answer(myStream);
-            } else {
-              // If we don't have a stream yet, create one to answer
-              navigator.mediaDevices.getUserMedia({ video: videoOn, audio: micOn })
-                .then(stream => {
-                  setMyStream(stream);
-                  if (myVideoRef.current) myVideoRef.current.srcObject = stream;
-                  call.answer(stream);
-                });
+            // Answer with current stream or empty stream
+            let streamToAnswer = myStreamRef.current;
+            if (!streamToAnswer) {
+              streamToAnswer = new MediaStream();
             }
+            
+            call.answer(streamToAnswer);
             
             call.on('stream', (userVideoStream) => {
               setRemoteStreams(prevStreams => {
@@ -147,13 +146,11 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
 
   // 2. Watch for other users joining (via Y.js Awareness)
   useEffect(() => {
-    if (!provider || !provider.awareness || !myStream || !peerInstance.current) return;
+    if (!provider || !provider.awareness || !peerInstance.current) return;
 
     const handleAwarenessChange = () => {
       const states = provider.awareness.getStates();
       const myPeerId = myPeerIdRef.current;
-      
-      console.log('Awareness change - My ID:', myPeerId);
       
       if (!myPeerId) {
         return;
@@ -171,14 +168,9 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
       
       setParticipantNames(names);
       
-      console.log('Active peer IDs:', Array.from(activePeerIds));
-      console.log('Current peers:', Object.keys(peersRef.current));
-      console.log('Participant names:', names);
-      
       // Remove peers that are no longer in awareness (they left/disconnected)
       Object.keys(peersRef.current).forEach(peerId => {
         if (!activePeerIds.has(peerId)) {
-          console.log('Removing peer:', peerId);
           // This peer is no longer active, close the connection
           if (peersRef.current[peerId]) {
             peersRef.current[peerId].close();
@@ -194,19 +186,26 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         }
       });
       
-      // Connect to new peers
+      // Connect to new peers - even if we don't have a stream yet
       activePeerIds.forEach((remotePeerId) => {
         // Skip if we already have this peer
         if (peersRef.current[remotePeerId]) {
-          return; // Removed log to reduce console spam
+          return;
         }
         
         if (!peerInstance.current) {
           return;
         }
         
+        // Get current stream or create empty one
+        let streamToSend = myStreamRef.current;
+        if (!streamToSend) {
+          // Create empty MediaStream to establish connection
+          streamToSend = new MediaStream();
+        }
+        
         // Call them!
-        const call = peerInstance.current.call(remotePeerId, myStream);
+        const call = peerInstance.current.call(remotePeerId, streamToSend);
         
         if (!call) {
           return;
@@ -238,17 +237,46 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
 
     provider.awareness.on('change', handleAwarenessChange);
     return () => provider.awareness.off('change', handleAwarenessChange);
-  }, [provider, myStream]);
+  }, [provider]);
+
+  // 3. Update existing peer connections when stream changes (when toggling video/mic)
+  useEffect(() => {
+    if (!myStream) return;
+
+    // Update all existing peer connections with the new stream tracks
+    Object.values(peersRef.current).forEach(call => {
+      if (call && call.peerConnection) {
+        const senders = call.peerConnection.getSenders();
+        
+        // Get current tracks from myStream
+        const videoTrack = myStream.getVideoTracks()[0] || null;
+        const audioTrack = myStream.getAudioTracks()[0] || null;
+        
+        // Replace or add video track
+        const videoSender = senders.find(s => !s.track || s.track.kind === 'video');
+        if (videoSender) {
+          videoSender.replaceTrack(videoTrack);
+        } else if (videoTrack) {
+          call.peerConnection.addTrack(videoTrack, myStream);
+        }
+        
+        // Replace or add audio track
+        const audioSender = senders.find(s => !s.track || s.track.kind === 'audio');
+        if (audioSender) {
+          audioSender.replaceTrack(audioTrack);
+        } else if (audioTrack) {
+          call.peerConnection.addTrack(audioTrack, myStream);
+        }
+      }
+    });
+  }, [myStream]);
 
   // Toggle Mute/Video - Properly stop and restart media streams (like Google Meet)
   useEffect(() => {
     const handleMediaToggle = async () => {
-      console.log('🎥 Media Toggle - VideoOn:', videoOn, 'MicOn:', micOn);
-      
       if (!myStream) {
         // No stream yet - create one if needed
         if (videoOn || micOn) {
-          console.log('🆕 Creating initial stream - Video:', videoOn, 'Mic:', micOn);
           try {
             const newStream = await navigator.mediaDevices.getUserMedia({ 
               video: videoOn, 
@@ -258,7 +286,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
             if (myVideoRef.current) {
               myVideoRef.current.srcObject = newStream;
             }
-            console.log('✅ Initial stream created');
             
             // Update all existing peer connections with new stream
             Object.values(peersRef.current).forEach(call => {
@@ -284,14 +311,9 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
       const videoTracks = myStream.getVideoTracks();
       const audioTracks = myStream.getAudioTracks();
       
-      console.log('📹 Current video tracks:', videoTracks.length, videoTracks.map(t => t.readyState));
-      console.log('🎤 Current audio tracks:', audioTracks.length, audioTracks.map(t => t.readyState));
-      
       // Handle video toggle
       if (!videoOn && videoTracks.length > 0) {
-        console.log('⛔ Turning OFF video - stopping tracks');
         videoTracks.forEach(track => {
-          console.log('Stopping video track:', track.id, track.label, track.readyState);
           track.stop();
           myStream.removeTrack(track);
         });
@@ -300,7 +322,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         if (myVideoRef.current?.srcObject) {
           const videoElTracks = myVideoRef.current.srcObject.getVideoTracks();
           videoElTracks.forEach(track => {
-            console.log('Stopping video element track:', track.id);
             track.stop();
           });
         }
@@ -311,15 +332,13 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
             const senders = call.peerConnection.getSenders();
             senders.forEach(sender => {
               if (sender.track?.kind === 'video') {
-                console.log('Removing video from peer connection');
-                sender.track?.stop(); // Stop the track in peer connection too
+                sender.track?.stop();
                 sender.replaceTrack(null);
               }
             });
           }
         });
       } else if (videoOn && videoTracks.every(t => t.readyState === 'ended' || videoTracks.length === 0)) {
-        console.log('📹 Turning ON video - requesting camera');
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           const videoTrack = stream.getVideoTracks()[0];
@@ -348,7 +367,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
       
       // Handle audio toggle
       if (!micOn && audioTracks.length > 0) {
-        console.log('🔇 Turning OFF mic - stopping tracks');
         audioTracks.forEach(track => {
           track.stop();
           myStream.removeTrack(track);
@@ -366,7 +384,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
           }
         });
       } else if (micOn && audioTracks.every(t => t.readyState === 'ended' || audioTracks.length === 0)) {
-        console.log('🎤 Turning ON mic - requesting microphone');
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
           const audioTrack = stream.getAudioTracks()[0];
@@ -391,14 +408,10 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
       
       // Clear video element if both are off
       if (!videoOn && !micOn) {
-        console.log('🗑️ Both off - clearing video element and stopping ALL tracks');
-        
         // Stop ALL tracks from video element
         if (myVideoRef.current?.srcObject) {
           const allVideoElTracks = myVideoRef.current.srcObject.getTracks();
-          console.log('Stopping', allVideoElTracks.length, 'tracks from video element');
           allVideoElTracks.forEach(track => {
-            console.log('Final stop:', track.kind, track.id, track.readyState);
             track.stop();
           });
           myVideoRef.current.srcObject = null;
@@ -406,17 +419,13 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         
         // Stop ALL tracks from myStream
         const allStreamTracks = myStream.getTracks();
-        console.log('Stopping', allStreamTracks.length, 'tracks from myStream');
         allStreamTracks.forEach(track => {
-          console.log('Final stream stop:', track.kind, track.id, track.readyState);
           track.stop();
         });
       } else if (videoOn && myVideoRef.current) {
         // Update video element if video is back on
         myVideoRef.current.srcObject = myStream;
       }
-      
-      console.log('✅ Toggle complete - Stream has', myStream.getTracks().length, 'tracks');
     };
 
     handleMediaToggle();
@@ -457,15 +466,24 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
       {/* Video Grid */}
       <div className="grid grid-cols-2 gap-2">
         {/* My Video */}
-        <div className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-black">
-          <video ref={myVideoRef} muted autoPlay playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
+        <div className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-gradient-to-br from-purple-900/50 via-blue-900/50 to-pink-900/50">
+          {videoOn ? (
+            <video ref={myVideoRef} muted autoPlay playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center">
+                <VideoOff className="mx-auto mb-2 text-white/40" size={32} />
+                <p className="text-white/60 text-xs">Camera Off</p>
+              </div>
+            </div>
+          )}
           <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">{user.username || 'You'}</div>
         </div>
 
         {/* Remote Videos */}
         {Object.entries(remoteStreams).map(([peerId, stream]) => (
-          <div key={peerId} className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-black">
-             <VideoPlayer stream={stream} />
+          <div key={peerId} className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-gradient-to-br from-purple-900/50 via-blue-900/50 to-pink-900/50">
+             <VideoPlayer stream={stream} peerId={peerId} />
              <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">
                {participantNames[peerId] || 'Loading...'}
              </div>
@@ -477,14 +495,75 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
 };
 
 // Helper component to handle stream binding
-const VideoPlayer = ({ stream }) => {
+const VideoPlayer = ({ stream, peerId }) => {
   const videoRef = useRef();
+  const [hasVideo, setHasVideo] = useState(true);
   
   useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream;
+    if (!stream) {
+      setHasVideo(false);
+      return;
+    }
+    
+    // Always set the srcObject
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+    
+    const checkVideoTracks = () => {
+      const videoTracks = stream.getVideoTracks();
+      // Has video if there are live video tracks
+      const hasLiveVideo = videoTracks.length > 0 && 
+                          videoTracks.some(t => t.readyState === 'live');
+      setHasVideo(hasLiveVideo);
+    };
+    
+    // Initial check after a brief delay to let tracks initialize
+    setTimeout(checkVideoTracks, 100);
+    
+    // Listen for track changes
+    const handleTrackChange = () => checkVideoTracks();
+    
+    stream.addEventListener('addtrack', handleTrackChange);
+    stream.addEventListener('removetrack', handleTrackChange);
+    
+    const videoTracks = stream.getVideoTracks();
+    videoTracks.forEach(track => {
+      track.addEventListener('ended', handleTrackChange);
+    });
+    
+    // Check periodically
+    const interval = setInterval(checkVideoTracks, 1000);
+    
+    return () => {
+      clearInterval(interval);
+      stream.removeEventListener('addtrack', handleTrackChange);
+      stream.removeEventListener('removetrack', handleTrackChange);
+      const tracks = stream.getVideoTracks();
+      tracks.forEach(track => {
+        track.removeEventListener('ended', handleTrackChange);
+      });
+    };
   }, [stream]);
 
-  return <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />;
+  return (
+    <div className="relative w-full h-full">
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline 
+        className={`w-full h-full object-cover ${!hasVideo ? 'opacity-0' : ''}`}
+      />
+      {!hasVideo && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <VideoOff className="mx-auto mb-2 text-white/40" size={32} />
+            <p className="text-white/60 text-xs">Camera Off</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default VideoChat;
