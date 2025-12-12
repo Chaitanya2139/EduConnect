@@ -6,6 +6,7 @@ import ProjectRoom from './pages/ProjectRoom';
 import Login from './pages/Login';
 import JoinChat from './pages/JoinChat';
 import ChatRoom from './pages/ChatRoom';
+import ParticipantsView from './pages/ParticipantsView';
 import { ArrowUpRight, Users, Clock } from 'lucide-react';
 
 // Protected Route Component
@@ -122,6 +123,8 @@ function App() {
         {/* Chat Room Routes */}
         <Route path="/join-chat" element={<ProtectedRoute><JoinChat /></ProtectedRoute>} />
         <Route path="/chat/:roomCode" element={<ProtectedRoute><ChatRoom /></ProtectedRoute>} />
+        {/* Participants View */}
+        <Route path="/participants/:roomName" element={<ProtectedRoute><ParticipantsView /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

@@ -62,7 +62,7 @@ const ProjectRoom = () => {
         </div>
 
         {/* RIGHT: Chat (receives shared doc) */}
-        <RoomSidebar provider={provider} ydoc={ydoc} />
+        <RoomSidebar provider={provider} ydoc={ydoc} roomName={roomId} />
         
       </div>
     </Layout>

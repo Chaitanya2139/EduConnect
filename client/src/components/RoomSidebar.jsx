@@ -3,7 +3,7 @@ import { Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VideoChat from './VideoChat';
 
-const RoomSidebar = ({ ydoc, provider }) => {
+const RoomSidebar = ({ ydoc, provider, roomName }) => {
   const [activeTab, setActiveTab] = useState('chat');
   
   // Real-time Chat State
@@ -70,7 +70,7 @@ const RoomSidebar = ({ ydoc, provider }) => {
   return (
     <div className="w-80 h-full flex flex-col gap-4">
       {/* 1. Real Video Chat Component */}
-      <VideoChat provider={provider} ydoc={ydoc} user={user} />
+      <VideoChat provider={provider} ydoc={ydoc} user={user} roomName={roomName} />
 
       {/* 2. Chat Panel */}
       <div className="flex-1 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl shadow-xl overflow-hidden flex flex-col">
