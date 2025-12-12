@@ -22,14 +22,9 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
     
     const initVideo = async () => {
       try {
-        // Get Local Stream
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
-          audio: true 
-        });
-        setMyStream(stream);
-        if (myVideoRef.current) myVideoRef.current.srcObject = stream;
-
+        // Don't request media on mount - wait for user to enable video/mic
+        // This prevents the browser from showing "Using now" until user actually wants to use camera/mic
+        
         // Initialize Peer (Auto-generates an ID) - ONLY ONCE
         if (!peerInstance.current) {
           const peer = new Peer();
@@ -64,13 +59,21 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
           // Listen for incoming calls
           peer.on('call', (call) => {
             const remotePeerId = call.peer;
-            console.log('Receiving call from:', remotePeerId);
             
-            // Always answer the call, update peer ref if needed
-            call.answer(stream);
+            // Answer with current stream (might be null initially)
+            if (myStream) {
+              call.answer(myStream);
+            } else {
+              // If we don't have a stream yet, create one to answer
+              navigator.mediaDevices.getUserMedia({ video: videoOn, audio: micOn })
+                .then(stream => {
+                  setMyStream(stream);
+                  if (myVideoRef.current) myVideoRef.current.srcObject = stream;
+                  call.answer(stream);
+                });
+            }
             
             call.on('stream', (userVideoStream) => {
-              console.log('Received incoming stream from:', remotePeerId);
               setRemoteStreams(prevStreams => {
                 if (prevStreams[remotePeerId]) return prevStreams;
                 return { ...prevStreams, [remotePeerId]: userVideoStream };
@@ -79,7 +82,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
             
             // Handle call close/disconnect
             call.on('close', () => {
-              console.log('Incoming call closed:', remotePeerId);
               delete peersRef.current[remotePeerId];
               setRemoteStreams(prev => {
                 const updated = { ...prev };
@@ -94,7 +96,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
             });
             
             call.on('error', (err) => {
-              console.log('Incoming call error from', remotePeerId, ':', err);
               delete peersRef.current[remotePeerId];
             });
             
@@ -116,9 +117,18 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         if (call) call.close();
       });
       
-      // Stop all media tracks
+      // Stop all media tracks from my stream
       if (myStream) {
-        myStream.getTracks().forEach(track => track.stop());
+        myStream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
+      }
+      
+      // Clear video element
+      if (myVideoRef.current && myVideoRef.current.srcObject) {
+        myVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
+        myVideoRef.current.srcObject = null;
       }
       
       // Destroy peer instance
@@ -130,6 +140,7 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
       // Clear awareness
       if (provider && provider.awareness) {
         provider.awareness.setLocalStateField('peerId', null);
+        provider.awareness.setLocalStateField('username', null);
       }
     };
   }, [provider]); // Only depend on provider
@@ -190,10 +201,7 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
           return; // Removed log to reduce console spam
         }
         
-        console.log('Calling new peer:', remotePeerId);
-        
         if (!peerInstance.current) {
-          console.log('Peer instance not ready yet');
           return;
         }
         
@@ -201,12 +209,10 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         const call = peerInstance.current.call(remotePeerId, myStream);
         
         if (!call) {
-          console.log('Failed to create call to:', remotePeerId);
           return;
         }
         
         call.on('stream', (userVideoStream) => {
-          console.log('Received stream from:', remotePeerId);
           setRemoteStreams(prev => {
             if (prev[remotePeerId]) return prev;
             return { ...prev, [remotePeerId]: userVideoStream };
@@ -214,7 +220,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         });
         
         call.on('close', () => {
-          console.log('Call closed:', remotePeerId);
           delete peersRef.current[remotePeerId];
           setRemoteStreams(prev => {
             const updated = { ...prev };
@@ -224,7 +229,6 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         });
         
         call.on('error', (err) => {
-          console.log('Call error with', remotePeerId, ':', err);
           delete peersRef.current[remotePeerId];
         });
 
@@ -236,12 +240,186 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
     return () => provider.awareness.off('change', handleAwarenessChange);
   }, [provider, myStream]);
 
-  // Toggle Mute/Video
+  // Toggle Mute/Video - Properly stop and restart media streams (like Google Meet)
   useEffect(() => {
-    if (myStream) {
-      myStream.getAudioTracks().forEach(track => track.enabled = micOn);
-      myStream.getVideoTracks().forEach(track => track.enabled = videoOn);
-    }
+    const handleMediaToggle = async () => {
+      console.log('🎥 Media Toggle - VideoOn:', videoOn, 'MicOn:', micOn);
+      
+      if (!myStream) {
+        // No stream yet - create one if needed
+        if (videoOn || micOn) {
+          console.log('🆕 Creating initial stream - Video:', videoOn, 'Mic:', micOn);
+          try {
+            const newStream = await navigator.mediaDevices.getUserMedia({ 
+              video: videoOn, 
+              audio: micOn 
+            });
+            setMyStream(newStream);
+            if (myVideoRef.current) {
+              myVideoRef.current.srcObject = newStream;
+            }
+            console.log('✅ Initial stream created');
+            
+            // Update all existing peer connections with new stream
+            Object.values(peersRef.current).forEach(call => {
+              if (call && call.peerConnection) {
+                const senders = call.peerConnection.getSenders();
+                newStream.getTracks().forEach(track => {
+                  const sender = senders.find(s => s.track?.kind === track.kind);
+                  if (sender) {
+                    sender.replaceTrack(track);
+                  } else {
+                    call.peerConnection.addTrack(track, newStream);
+                  }
+                });
+              }
+            });
+          } catch (err) {
+            console.error("❌ Error creating stream:", err);
+          }
+        }
+        return;
+      }
+      
+      const videoTracks = myStream.getVideoTracks();
+      const audioTracks = myStream.getAudioTracks();
+      
+      console.log('📹 Current video tracks:', videoTracks.length, videoTracks.map(t => t.readyState));
+      console.log('🎤 Current audio tracks:', audioTracks.length, audioTracks.map(t => t.readyState));
+      
+      // Handle video toggle
+      if (!videoOn && videoTracks.length > 0) {
+        console.log('⛔ Turning OFF video - stopping tracks');
+        videoTracks.forEach(track => {
+          console.log('Stopping video track:', track.id, track.label, track.readyState);
+          track.stop();
+          myStream.removeTrack(track);
+        });
+        
+        // Also stop tracks from video element if they exist
+        if (myVideoRef.current?.srcObject) {
+          const videoElTracks = myVideoRef.current.srcObject.getVideoTracks();
+          videoElTracks.forEach(track => {
+            console.log('Stopping video element track:', track.id);
+            track.stop();
+          });
+        }
+        
+        // Remove video tracks from all peer connections
+        Object.values(peersRef.current).forEach(call => {
+          if (call && call.peerConnection) {
+            const senders = call.peerConnection.getSenders();
+            senders.forEach(sender => {
+              if (sender.track?.kind === 'video') {
+                console.log('Removing video from peer connection');
+                sender.track?.stop(); // Stop the track in peer connection too
+                sender.replaceTrack(null);
+              }
+            });
+          }
+        });
+      } else if (videoOn && videoTracks.every(t => t.readyState === 'ended' || videoTracks.length === 0)) {
+        console.log('📹 Turning ON video - requesting camera');
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          const videoTrack = stream.getVideoTracks()[0];
+          myStream.addTrack(videoTrack);
+          
+          if (myVideoRef.current) {
+            myVideoRef.current.srcObject = myStream;
+          }
+          
+          // Add video track to all peer connections
+          Object.values(peersRef.current).forEach(call => {
+            if (call && call.peerConnection) {
+              const senders = call.peerConnection.getSenders();
+              const videoSender = senders.find(s => s.track?.kind === 'video' || s.track === null);
+              if (videoSender) {
+                videoSender.replaceTrack(videoTrack);
+              } else {
+                call.peerConnection.addTrack(videoTrack, myStream);
+              }
+            }
+          });
+        } catch (err) {
+          console.error("❌ Error enabling video:", err);
+        }
+      }
+      
+      // Handle audio toggle
+      if (!micOn && audioTracks.length > 0) {
+        console.log('🔇 Turning OFF mic - stopping tracks');
+        audioTracks.forEach(track => {
+          track.stop();
+          myStream.removeTrack(track);
+        });
+        
+        // Remove audio tracks from all peer connections
+        Object.values(peersRef.current).forEach(call => {
+          if (call && call.peerConnection) {
+            const senders = call.peerConnection.getSenders();
+            senders.forEach(sender => {
+              if (sender.track?.kind === 'audio') {
+                sender.replaceTrack(null);
+              }
+            });
+          }
+        });
+      } else if (micOn && audioTracks.every(t => t.readyState === 'ended' || audioTracks.length === 0)) {
+        console.log('🎤 Turning ON mic - requesting microphone');
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          const audioTrack = stream.getAudioTracks()[0];
+          myStream.addTrack(audioTrack);
+          
+          // Add audio track to all peer connections
+          Object.values(peersRef.current).forEach(call => {
+            if (call && call.peerConnection) {
+              const senders = call.peerConnection.getSenders();
+              const audioSender = senders.find(s => s.track?.kind === 'audio' || s.track === null);
+              if (audioSender) {
+                audioSender.replaceTrack(audioTrack);
+              } else {
+                call.peerConnection.addTrack(audioTrack, myStream);
+              }
+            }
+          });
+        } catch (err) {
+          console.error("❌ Error enabling mic:", err);
+        }
+      }
+      
+      // Clear video element if both are off
+      if (!videoOn && !micOn) {
+        console.log('🗑️ Both off - clearing video element and stopping ALL tracks');
+        
+        // Stop ALL tracks from video element
+        if (myVideoRef.current?.srcObject) {
+          const allVideoElTracks = myVideoRef.current.srcObject.getTracks();
+          console.log('Stopping', allVideoElTracks.length, 'tracks from video element');
+          allVideoElTracks.forEach(track => {
+            console.log('Final stop:', track.kind, track.id, track.readyState);
+            track.stop();
+          });
+          myVideoRef.current.srcObject = null;
+        }
+        
+        // Stop ALL tracks from myStream
+        const allStreamTracks = myStream.getTracks();
+        console.log('Stopping', allStreamTracks.length, 'tracks from myStream');
+        allStreamTracks.forEach(track => {
+          console.log('Final stream stop:', track.kind, track.id, track.readyState);
+          track.stop();
+        });
+      } else if (videoOn && myVideoRef.current) {
+        // Update video element if video is back on
+        myVideoRef.current.srcObject = myStream;
+      }
+      
+      console.log('✅ Toggle complete - Stream has', myStream.getTracks().length, 'tracks');
+    };
+
+    handleMediaToggle();
   }, [micOn, videoOn, myStream]);
 
   return (
