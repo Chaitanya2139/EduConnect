@@ -70,6 +70,16 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user')) || { username: 'Guest', email: 'guest@educonnect.com' };
 
+  const handleLogout = () => {
+    // Clear all auth data
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('educonnect-user-id');
+    
+    // Navigate to login
+    navigate('/login');
+  };
+
   return (
     <div className="flex h-screen w-full bg-black overflow-hidden p-4 gap-4 font-sans selection:bg-blue-500/30">
       
@@ -149,6 +159,15 @@ const Layout = ({ children }) => {
               )}
               {!collapsed && <Settings size={16} className="text-zinc-500" />}
            </div>
+           
+           {/* Logout Button */}
+           <button
+             onClick={handleLogout}
+             className={`w-full mt-2 flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors ${collapsed ? 'justify-center' : ''}`}
+           >
+             <LogOut size={18} />
+             {!collapsed && <span className="text-sm font-medium">Logout</span>}
+           </button>
         </div>
 
       </motion.div>
