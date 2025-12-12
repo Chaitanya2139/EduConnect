@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import VideoChat from './VideoChat';
 
 const RoomSidebar = ({ ydoc, provider }) => {
   const [activeTab, setActiveTab] = useState('chat');
-  const [micOn, setMicOn] = useState(true);
-  const [videoOn, setVideoOn] = useState(true);
   
   // Real-time Chat State
   const [messages, setMessages] = useState([]);
@@ -70,14 +69,8 @@ const RoomSidebar = ({ ydoc, provider }) => {
 
   return (
     <div className="w-80 h-full flex flex-col gap-4">
-      {/* 1. Video Controls */}
-      <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 p-4 rounded-2xl shadow-xl">
-        <div className="flex justify-center gap-4">
-           <button onClick={() => setMicOn(!micOn)} className={`p-3 rounded-full transition-all ${micOn ? 'bg-zinc-800 text-white' : 'bg-red-500/20 text-red-500'}`}>{micOn ? <Mic size={20} /> : <MicOff size={20} />}</button>
-           <button onClick={() => setVideoOn(!videoOn)} className={`p-3 rounded-full transition-all ${videoOn ? 'bg-zinc-800 text-white' : 'bg-red-500/20 text-red-500'}`}>{videoOn ? <Video size={20} /> : <VideoOff size={20} />}</button>
-           <button className="p-3 rounded-full bg-red-600 text-white hover:bg-red-500"><X size={20} /></button>
-        </div>
-      </div>
+      {/* 1. Real Video Chat Component */}
+      <VideoChat provider={provider} ydoc={ydoc} user={user} />
 
       {/* 2. Chat Panel */}
       <div className="flex-1 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl shadow-xl overflow-hidden flex flex-col">
