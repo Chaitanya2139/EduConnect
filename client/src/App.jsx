@@ -4,6 +4,9 @@ import Layout from './Layout';
 import SpotlightCard from './components/SpotlightCard';
 import ProjectRoom from './pages/ProjectRoom'; 
 import Login from './pages/Login';
+import InstructorDashboard from './pages/InstructorDashboard';
+import TADashboard from './pages/TADashboard';
+import StudentDashboard from './pages/StudentDashboard';
 import JoinChat from './pages/JoinChat';
 import ChatRoom from './pages/ChatRoom';
 import ParticipantsView from './pages/ParticipantsView';
@@ -18,8 +21,26 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// 1. Dashboard Component (Extracted so we can use the useNavigate hook)
+// 1. Smart Dashboard Component that redirects based on role
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user')) || { username: 'Guest', role: 'student' };
+
+  // Redirect based on role
+  React.useEffect(() => {
+    if (user.role === 'instructor') {
+      navigate('/instructor-dashboard', { replace: true });
+    } else if (user.role === 'teaching-assistant') {
+      navigate('/ta-dashboard', { replace: true });
+    }
+  }, [user.role, navigate]);
+
+  // Render student dashboard
+  return <StudentDashboard />;
+};
+
+// Old generic dashboard (keeping for reference, but unused now)
+const GenericDashboard = () => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user')) || { username: 'Guest' };
 
@@ -117,6 +138,9 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/instructor-dashboard" element={<ProtectedRoute><InstructorDashboard /></ProtectedRoute>} />
+        <Route path="/ta-dashboard" element={<ProtectedRoute><TADashboard /></ProtectedRoute>} />
+        <Route path="/student-dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         {/* The :roomId parameter makes the URL dynamic */}
         <Route path="/room/:roomId" element={<ProtectedRoute><ProjectRoom /></ProtectedRoute>} />

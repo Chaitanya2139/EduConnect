@@ -44,12 +44,18 @@ class SimpleWebsocketProvider {
   connect() {
     if (!this.shouldConnect) return;
     
+    // Prevent multiple connections
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    
     const wsUrl = `${this.url}/${this.roomName}`;
     this.ws = new WebSocket(wsUrl);
     this.ws.binaryType = 'arraybuffer';
     
     this.ws.onopen = () => {
       this.connected = true;
+      console.log('✅ Connected to room:', this.roomName);
     };
     
     this.ws.onmessage = (event) => {
@@ -78,15 +84,26 @@ class SimpleWebsocketProvider {
     
     this.ws.onclose = (event) => {
       this.connected = false;
-      if (this.shouldConnect && event.code !== 1000) {
+      // Only reconnect if it wasn't a clean close (1000) or intentional close (1005)
+      if (this.shouldConnect && event.code !== 1000 && event.code !== 1005) {
+        console.log('🔄 Reconnecting in 2 seconds...');
         setTimeout(() => this.connect(), 2000);
       }
     };
     
     this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      // Suppress error logging - the onclose will handle it
     };
   }
+  //     if (this.shouldConnect && event.code !== 1000) {
+  //       setTimeout(() => this.connect(), 2000);
+  //     }
+  //   };
+    
+  //   this.ws.onerror = (error) => {
+  //     console.error('WebSocket error:', error);
+  //   };
+  // }
   
   destroy() {
     this.shouldConnect = false;
@@ -118,7 +135,7 @@ export const useCollaboration = (roomId) => {
 
     const doc = new Y.Doc();
     const provider = new SimpleWebsocketProvider(
-      'ws://localhost:1234',
+      'ws://localhost:3001',
       roomId,
       doc
     );

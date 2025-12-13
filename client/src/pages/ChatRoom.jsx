@@ -116,7 +116,7 @@ const ChatRoom = () => {
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
     
-    const provider = new ChatWebsocketProvider('ws://localhost:1234', roomCode, ydoc);
+    const provider = new ChatWebsocketProvider('ws://localhost:3001', roomCode, ydoc);
     providerRef.current = provider;
 
     const yMessages = ydoc.getArray('messages');

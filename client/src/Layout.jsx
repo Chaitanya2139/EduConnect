@@ -6,6 +6,7 @@ import {
   Search, Bell, Users, FolderGit2, Calendar, Zap, 
   ChevronLeft, ChevronRight 
 } from 'lucide-react';
+import NotificationBell from './components/NotificationBell';
 
 const SidebarSection = ({ title, children, collapsed }) => (
   <div className="mb-6">
@@ -190,10 +191,7 @@ const Layout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-             <button className="relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
-                <Bell size={18} />
-                <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-[#0a0a0a]" />
-             </button>
+             <NotificationBell />
              <button className="text-xs font-medium bg-white text-black px-4 py-2 rounded-full hover:bg-zinc-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                 + New Project
              </button>

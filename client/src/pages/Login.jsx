@@ -1,37 +1,96 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, ArrowRight } from 'lucide-react';
+import { Zap, ArrowRight, GraduationCap, BookOpen, UserCog } from 'lucide-react';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ 
+    username: '', 
+    email: '', 
+    password: '', 
+    confirmPassword: '',
+    role: 'student' 
+  });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  const roles = [
+    {
+      value: 'student',
+      label: 'Student',
+      icon: GraduationCap,
+      color: 'from-blue-500 to-blue-600',
+      description: 'Access collaborative documents, assignments, and polls'
+    },
+    {
+      value: 'instructor',
+      label: 'Instructor',
+      icon: BookOpen,
+      color: 'from-purple-500 to-purple-600',
+      description: 'Create assignments, manage polls, and control document access'
+    },
+    {
+      value: 'teaching-assistant',
+      label: 'Teaching Assistant',
+      icon: UserCog,
+      color: 'from-green-500 to-green-600',
+      description: 'Help grade assignments, manage discussions, and assist students'
+    }
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!isLogin) {
+      // Validation for signup
+      if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
+        setError('Please fill in all fields');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters');
+        return;
+      }
+    }
     
-    const endpoint = isLogin ? '/api/login' : '/api/signup';
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    const payload = isLogin 
+      ? { email: formData.email, password: formData.password }
+      : { 
+          username: formData.username, 
+          email: formData.email, 
+          password: formData.password,
+          role: formData.role
+        };
     
     try {
-      const res = await fetch(`http://localhost:1234${endpoint}`, {
+      const res = await fetch(`http://localhost:3001${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       const data = await res.json();
       
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.message || 'Authentication failed');
 
-      if (isLogin) {
-        // Save user to localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/');
+      // Save user to localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('educonnect-user-id', data.user.id);
+
+      // Navigate based on role
+      if (data.user.role === 'instructor') {
+        navigate('/instructor-dashboard');
+      } else if (data.user.role === 'teaching-assistant') {
+        navigate('/ta-dashboard');
       } else {
-        setIsLogin(true); // Switch to login after signup
+        navigate('/');
       }
     } catch (err) {
       setError(err.message);
@@ -63,24 +122,78 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <input 
-              type="text" placeholder="Username" 
+              type="text" 
+              placeholder="Username" 
+              required
               className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
               value={formData.username}
               onChange={e => setFormData({...formData, username: e.target.value})}
             />
           )}
           <input 
-            type="email" placeholder="Email Address" 
+            type="email" 
+            placeholder="Email Address" 
+            required
             className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
             value={formData.email}
             onChange={e => setFormData({...formData, email: e.target.value})}
           />
           <input 
-            type="password" placeholder="Password" 
+            type="password" 
+            placeholder="Password" 
+            required
             className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
             value={formData.password}
             onChange={e => setFormData({...formData, password: e.target.value})}
           />
+          {!isLogin && (
+            <input 
+              type="password" 
+              placeholder="Confirm Password" 
+              required
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              value={formData.confirmPassword}
+              onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+            />
+          )}
+
+          {!isLogin && (
+            <div className="space-y-3 pt-2">
+              <label className="text-sm font-medium text-zinc-300 block">Select Your Role</label>
+              <div className="grid grid-cols-1 gap-2">
+                {roles.map((role) => {
+                  const Icon = role.icon;
+                  return (
+                    <button
+                      key={role.value}
+                      type="button"
+                      onClick={() => setFormData({...formData, role: role.value})}
+                      className={`relative p-3 rounded-xl border-2 transition-all text-left ${
+                        formData.role === role.value
+                          ? 'border-white/40 bg-white/5'
+                          : 'border-white/10 bg-black/20 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${role.color} flex items-center justify-center flex-shrink-0`}>
+                          <Icon className="text-white" size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-white font-semibold text-sm">{role.label}</h3>
+                          <p className="text-zinc-400 text-xs line-clamp-1">{role.description}</p>
+                        </div>
+                        {formData.role === role.value && (
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <button className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 mt-2">
             {isLogin ? 'Sign In' : 'Create Account'} <ArrowRight size={16} />
@@ -89,7 +202,11 @@ const Login = () => {
 
         <div className="mt-6 text-center">
           <button 
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+              setFormData({ username: '', email: '', password: '', confirmPassword: '', role: 'student' });
+            }}
             className="text-xs text-zinc-500 hover:text-white transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
