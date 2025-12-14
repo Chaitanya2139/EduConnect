@@ -111,16 +111,16 @@ router.post('/:id/vote', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Poll not found' });
     }
 
-    // Check if user already voted
-    const alreadyVoted = poll.options.some(opt => 
-      opt.voters.some(voter => voter.toString() === req.user.userId)
-    );
+    // Remove previous vote if exists
+    poll.options.forEach(option => {
+      const voterIndex = option.voters.findIndex(voter => voter.toString() === req.user.userId);
+      if (voterIndex !== -1) {
+        option.voters.splice(voterIndex, 1);
+        option.votes = Math.max(0, option.votes - 1);
+      }
+    });
 
-    if (alreadyVoted) {
-      return res.status(400).json({ message: 'You have already voted on this poll' });
-    }
-
-    // Add vote
+    // Add new vote
     poll.options[optionIndex].votes += 1;
     poll.options[optionIndex].voters.push(req.user.userId);
     await poll.save();

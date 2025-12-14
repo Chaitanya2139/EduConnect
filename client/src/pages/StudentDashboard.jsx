@@ -69,17 +69,17 @@ const StudentDashboard = () => {
       });
 
       if (res.ok) {
-        fetchPolls(); // Refresh polls
-        alert('Vote submitted successfully!');
-      } else {
-        const data = await res.json();
-        alert(data.message || 'Failed to vote');
+        const updatedPoll = await res.json();
+        // Update polls state with new data
+        setPolls(prevPolls => 
+          prevPolls.map(poll => poll._id === pollId ? updatedPoll : poll)
+        );
       }
     } catch (err) {
       console.error('Error voting:', err);
-      alert('Error submitting vote');
     }
   };
+    
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -291,14 +291,11 @@ const StudentDashboard = () => {
                         return (
                           <button
                             key={index}
-                            onClick={() => !hasVoted && handleVote(poll._id, index)}
-                            disabled={hasVoted}
-                            className={`w-full text-left p-4 rounded-lg border transition-all ${
-                              hasVoted
-                                ? isSelected
-                                  ? 'bg-purple-500/20 border-purple-500/50'
-                                  : 'bg-zinc-800/50 border-zinc-700'
-                                : 'bg-zinc-800/50 border-zinc-700 hover:border-purple-500/50 hover:bg-purple-500/10 cursor-pointer'
+                            onClick={() => handleVote(poll._id, index)}
+                            className={`w-full text-left p-4 rounded-lg border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-purple-500/20 border-purple-500/50'
+                                : 'bg-zinc-800/50 border-zinc-700 hover:border-purple-500/50 hover:bg-purple-500/10'
                             }`}
                           >
                             <div className="flex items-center justify-between mb-2">
@@ -317,7 +314,7 @@ const StudentDashboard = () => {
                             {hasVoted && (
                               <div className="w-full bg-zinc-700 rounded-full h-2">
                                 <div
-                                  className="bg-purple-500 h-2 rounded-full transition-all"
+                                  className="bg-purple-500 h-2 rounded-full transition-all duration-300"
                                   style={{ width: `${percentage}%` }}
                                 />
                               </div>
