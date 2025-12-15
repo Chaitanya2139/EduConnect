@@ -11,19 +11,23 @@ const app = express();
 
 // CORS Configuration
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:5173',
+  process.env.CLIENT_URL,
   'http://localhost:5173',
   'http://localhost:3000'
-];
+].filter(Boolean); // Remove undefined values
 
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    console.log('🔍 CORS Check - Origin:', origin);
+    console.log('🔍 Allowed Origins:', allowedOrigins);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log('❌ Origin not allowed:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
