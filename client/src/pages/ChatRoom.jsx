@@ -4,6 +4,7 @@ import { ArrowLeft, Send, Users, Copy, Check, MoreVertical, Trash2 } from 'lucid
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
+import config from '../config';
 
 // Simple WebSocket Provider for Chat
 class ChatWebsocketProvider {
