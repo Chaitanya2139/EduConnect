@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import config from '../config';
 import { Zap, ArrowRight, GraduationCap, BookOpen, UserCog } from 'lucide-react';
 
 const Login = () => {
@@ -69,7 +70,7 @@ const Login = () => {
         };
     
     try {
-      const res = await fetch(`http://localhost:3001${endpoint}`, {
+      const res = await fetch(`${config.apiUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

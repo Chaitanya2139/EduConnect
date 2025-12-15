@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../Layout';
+import config from '../config';
 import { BookOpen, Clock, CheckCircle, Circle, Users, Upload, FileText } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -27,7 +28,7 @@ const StudentDashboard = () => {
 
   const fetchAssignments = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/assignments', {
+      const res = await fetch(`${config.apiUrl}/api/assignments`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -45,7 +46,7 @@ const StudentDashboard = () => {
 
   const fetchPolls = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/polls', {
+      const res = await fetch(`${config.apiUrl}/api/polls`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -59,7 +60,7 @@ const StudentDashboard = () => {
 
   const handleVote = async (pollId, optionIndex) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/polls/${pollId}/vote`, {
+      const res = await fetch(`${config.apiUrl}/api/polls/${pollId}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +110,7 @@ const StudentDashboard = () => {
     }
 
     try {
-      const res = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment._id}/submit`, {
+      const res = await fetch(`${config.apiUrl}/api/assignments/${selectedAssignment._id}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

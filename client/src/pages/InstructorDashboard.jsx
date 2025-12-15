@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../Layout';
+import config from '../config';
 import { 
   FileText, 
   Plus, 
@@ -50,7 +51,7 @@ const InstructorDashboard = () => {
 
   const fetchAssignments = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/assignments', {
+      const res = await fetch(`${config.apiUrl}/api/assignments`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -64,7 +65,7 @@ const InstructorDashboard = () => {
 
   const fetchPolls = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/polls', {
+      const res = await fetch(`${config.apiUrl}/api/polls`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -94,7 +95,7 @@ const InstructorDashboard = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:3001/api/assignments', {
+      const res = await fetch(`${config.apiUrl}/api/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ const InstructorDashboard = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:3001/api/polls', {
+      const res = await fetch(`${config.apiUrl}/api/polls`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +165,7 @@ const InstructorDashboard = () => {
 
   const toggleAssignmentEditability = async (id, currentStatus) => {
     try {
-      await fetch(`http://localhost:3001/api/assignments/${id}/editability`, {
+      await fetch(`${config.apiUrl}/api/assignments/${id}/editability`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +183,7 @@ const InstructorDashboard = () => {
     if (!window.confirm('Are you sure you want to delete this assignment?')) return;
     
     try {
-      await fetch(`http://localhost:3001/api/assignments/${id}`, {
+      await fetch(`${config.apiUrl}/api/assignments/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -212,7 +213,7 @@ const InstructorDashboard = () => {
 
   const viewSubmissions = async (assignment) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/assignments/${assignment._id}/submissions`, {
+      const res = await fetch(`${config.apiUrl}/api/assignments/${assignment._id}/submissions`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

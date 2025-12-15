@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../Layout';
+import config from '../config';
 import { 
   CheckCircle, 
   MessageCircle, 
@@ -28,7 +29,7 @@ const TADashboard = () => {
 
   const fetchAssignments = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/assignments', {
+      const res = await fetch(`${config.apiUrl}/api/assignments`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -42,7 +43,7 @@ const TADashboard = () => {
 
   const fetchSubmissions = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/submissions', {
+      const res = await fetch(`${config.apiUrl}/api/submissions`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

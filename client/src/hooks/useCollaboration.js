@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
+import config from '../config';
 
 // Our custom WebSocket provider that works with our server
 class SimpleWebsocketProvider {
@@ -135,7 +136,7 @@ export const useCollaboration = (roomId) => {
 
     const doc = new Y.Doc();
     const provider = new SimpleWebsocketProvider(
-      'ws://localhost:3001',
+      config.wsUrl,
       roomId,
       doc
     );

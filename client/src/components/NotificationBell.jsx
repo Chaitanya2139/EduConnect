@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { io } from 'socket.io-client';
+import config from '../config';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -17,7 +18,7 @@ const NotificationBell = () => {
     console.log('👤 Initializing NotificationBell for user:', user.id);
 
     // Connect to Socket.io
-    const socket = io('http://localhost:3001');
+    const socket = io(config.socketUrl);
 
     socket.on('connect', () => {
       console.log('🔔 Connected to notification server, socket ID:', socket.id);
