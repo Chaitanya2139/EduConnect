@@ -103,17 +103,17 @@ const Layout = ({ children }) => {
 
         {/* Logo Header */}
         <div className={`h-20 flex items-center ${collapsed ? 'justify-center' : 'px-6 gap-3'} mb-2 transition-all`}>
-           <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-             <Zap size={16} className="text-white fill-white" />
-           </div>
-           {!collapsed && (
-             <motion.span 
-               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-               className="font-bold text-lg tracking-tight text-white whitespace-nowrap"
-             >
-               EduConnect
-             </motion.span>
-           )}
+            <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+              <Zap size={16} className="text-white fill-white" />
+            </div>
+            {!collapsed && (
+              <motion.span 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="font-bold text-lg tracking-tight text-white whitespace-nowrap"
+              >
+                EduConnect
+              </motion.span>
+            )}
         </div>
 
         {/* Scrollable Nav Area */}
@@ -133,16 +133,16 @@ const Layout = ({ children }) => {
           <SidebarSection title="Active Groups" collapsed={collapsed}>
             <div className="px-2 space-y-1">
                {/* Group 1 */}
-               <div className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group text-zinc-400 hover:text-white transition-colors ${collapsed ? 'justify-center' : ''}`}>
+                <div className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group text-zinc-400 hover:text-white transition-colors ${collapsed ? 'justify-center' : ''}`}>
                   <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] shrink-0" />
                   {!collapsed && <span className="text-sm whitespace-nowrap">React Advanced</span>}
-               </div>
-               
+                </div>
+
                {/* Group 2 */}
-               <div className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group text-zinc-400 hover:text-white transition-colors ${collapsed ? 'justify-center' : ''}`}>
+                <div className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group text-zinc-400 hover:text-white transition-colors ${collapsed ? 'justify-center' : ''}`}>
                   <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
                   {!collapsed && <span className="text-sm whitespace-nowrap">System Design</span>}
-               </div>
+                </div>
             </div>
           </SidebarSection>
 
@@ -150,25 +150,25 @@ const Layout = ({ children }) => {
 
         {/* User Footer */}
         <div className="p-4 mt-auto border-t border-white/5">
-           <div className={`flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer ${collapsed ? 'justify-center' : ''}`}>
+            <div className={`flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer ${collapsed ? 'justify-center' : ''}`}>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-black border border-white/10 shrink-0" />
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                   <div className="text-sm font-medium text-white truncate">{user.username}</div>
-                   <div className="text-xs text-zinc-500 truncate">{user.email}</div>
+                    <div className="text-sm font-medium text-white truncate">{user.username}</div>
+                    <div className="text-xs text-zinc-500 truncate">{user.email}</div>
                 </div>
               )}
               {!collapsed && <Settings size={16} className="text-zinc-500" />}
-           </div>
-           
+            </div>
+              
            {/* Logout Button */}
-           <button
-             onClick={handleLogout}
-             className={`w-full mt-2 flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors ${collapsed ? 'justify-center' : ''}`}
-           >
-             <LogOut size={18} />
-             {!collapsed && <span className="text-sm font-medium">Logout</span>}
-           </button>
+            <button
+              onClick={handleLogout}
+              className={`w-full mt-2 flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors ${collapsed ? 'justify-center' : ''}`}
+            >
+              <LogOut size={18} />
+              {!collapsed && <span className="text-sm font-medium">Logout</span>}
+            </button>
         </div>
 
       </motion.div>

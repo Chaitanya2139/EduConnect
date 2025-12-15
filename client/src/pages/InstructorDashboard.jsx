@@ -11,7 +11,9 @@ import {
   Lock,
   Unlock,
   Trash2,
-  Send
+  Send,
+  Eye,
+  Download
 } from 'lucide-react';
 
 const InstructorDashboard = () => {
@@ -19,6 +21,11 @@ const InstructorDashboard = () => {
   const [polls, setPolls] = useState([]);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [assignmentValidationAttempted, setAssignmentValidationAttempted] = useState(false);
+  const [pollValidationAttempted, setPollValidationAttempted] = useState(false);
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -71,16 +78,18 @@ const InstructorDashboard = () => {
 
   const createAssignment = async () => {
     // Validate required fields
+
+    setAssignmentValidationAttempted(true);
     if (!newAssignment.title.trim()) {
-      alert('❌ Assignment title is required!');
+      // alert('❌ Assignment title is required!');
       return;
     }
     if (!newAssignment.description.trim()) {
-      alert('❌ Assignment description is required!');
+      // alert('❌ Assignment description is required!');
       return;
     }
     if (!newAssignment.dueDate) {
-      alert('❌ Due date is required!');
+      // alert('❌ Due date is required!');
       return;
     }
 
@@ -97,6 +106,7 @@ const InstructorDashboard = () => {
       if (res.ok) {
         setShowAssignmentModal(false);
         setNewAssignment({ title: '', description: '', dueDate: '', isEditable: false, type: 'individual' });
+        setAssignmentValidationAttempted(false);
         fetchAssignments();
       } else {
         const data = await res.json();
@@ -109,16 +119,18 @@ const InstructorDashboard = () => {
   };
 
   const createPoll = async () => {
+
+    setPollValidationAttempted(true);
     // Validate required fields
     if (!newPoll.question.trim()) {
-      alert('❌ Poll question is required!');
+      // alert('❌ Poll question is required!');
       return;
     }
     
     // Filter out empty options and validate
     const validOptions = newPoll.options.filter(opt => opt.trim());
     if (validOptions.length < 2) {
-      alert('❌ Please provide at least 2 options!');
+      // alert('❌ Please provide at least 2 options!');
       return;
     }
 
@@ -138,6 +150,7 @@ const InstructorDashboard = () => {
       if (res.ok) {
         setShowPollModal(false);
         setNewPoll({ question: '', options: ['', ''] });
+        setPollValidationAttempted(false);
         fetchPolls();
       } else {
         const data = await res.json();
@@ -195,6 +208,24 @@ const InstructorDashboard = () => {
     if (newPoll.options.length <= 2) return;
     const updated = newPoll.options.filter((_, i) => i !== index);
     setNewPoll({ ...newPoll, options: updated });
+  };
+
+  const viewSubmissions = async (assignment) => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/assignments/${assignment._id}/submissions`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSubmissions(data);
+        setSelectedAssignment(assignment);
+        setShowSubmissionsModal(true);
+      }
+    } catch (err) {
+      console.error('Error fetching submissions:', err);
+    }
   };
 
   return (
@@ -276,6 +307,13 @@ const InstructorDashboard = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => viewSubmissions(assignment)}
+                    className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
+                    title="View Submissions"
+                  >
+                    <Eye size={18} />
+                  </button>
+                  <button
                     onClick={() => toggleAssignmentEditability(assignment._id, assignment.isEditable)}
                     className={`p-2 rounded-lg transition-colors ${assignment.isEditable ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}
                     title={assignment.isEditable ? 'Make Read-Only' : 'Make Editable'}
@@ -351,10 +389,12 @@ const InstructorDashboard = () => {
                   value={newAssignment.title}
                   onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
                   className={`w-full bg-zinc-800 border rounded-xl px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 ${
-                    newAssignment.title.trim() ? 'border-white/10 focus:ring-blue-500' : 'border-red-500/50 focus:ring-red-500'
+                    // newAssignment.title.trim() ? 'border-white/10 focus:ring-blue-500' : 'border-red-500/50 focus:ring-red-500'
+                    assignmentValidationAttempted && !newAssignment.title.trim() ? 'border-red-500/50 focus:ring-red-500' : 'border-white/10 focus:ring-blue-500'
                   }`}
                 />
-                {!newAssignment.title.trim() && (
+                {/* {!newAssignment.title.trim() && ( */}
+                {assignmentValidationAttempted && !newAssignment.title.trim() && (
                   <p className="text-red-400 text-xs mt-1">* Title is required</p>
                 )}
               </div>
@@ -364,10 +404,11 @@ const InstructorDashboard = () => {
                   value={newAssignment.description}
                   onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })}
                   className={`w-full bg-zinc-800 border rounded-xl px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 h-24 resize-none ${
-                    newAssignment.description.trim() ? 'border-white/10 focus:ring-blue-500' : 'border-red-500/50 focus:ring-red-500'
+                    assignmentValidationAttempted && !newAssignment.description.trim() ? 'border-red-500/50 focus:ring-red-500' : 'border-white/10 focus:ring-blue-500'
                   }`}
                 />
-                {!newAssignment.description.trim() && (
+                {/* {!newAssignment.description.trim() && ( */}
+                {assignmentValidationAttempted && !newAssignment.description.trim() && (
                   <p className="text-red-400 text-xs mt-1">* Description is required</p>
                 )}
               </div>
@@ -377,10 +418,10 @@ const InstructorDashboard = () => {
                   value={newAssignment.dueDate}
                   onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
                   className={`w-full bg-zinc-800 border rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 ${
-                    newAssignment.dueDate ? 'border-white/10 focus:ring-blue-500' : 'border-red-500/50 focus:ring-red-500'
+                    assignmentValidationAttempted && !newAssignment.dueDate ? 'border-red-500/50 focus:ring-red-500' : 'border-white/10 focus:ring-blue-500'
                   }`}
                 />
-                {!newAssignment.dueDate && (
+                {assignmentValidationAttempted && !newAssignment.dueDate && (
                   <p className="text-red-400 text-xs mt-1">* Due date is required</p>
                 )}
               </div>
@@ -432,7 +473,8 @@ const InstructorDashboard = () => {
               <button
                 onClick={() => {
                   setShowAssignmentModal(false);
-                  setNewAssignment({ title: '', description: '', dueDate: '', isEditable: false });
+                  setNewAssignment({ title: '', description: '', dueDate: '', isEditable: false, type: 'individual' });
+                  setAssignmentValidationAttempted(false);
                 }}
                 className="flex-1 px-4 py-2 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-colors"
               >
@@ -462,10 +504,12 @@ const InstructorDashboard = () => {
                   value={newPoll.question}
                   onChange={(e) => setNewPoll({ ...newPoll, question: e.target.value })}
                   className={`w-full bg-zinc-800 border rounded-xl px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 ${
-                    newPoll.question.trim() ? 'border-white/10 focus:ring-purple-500' : 'border-red-500/50 focus:ring-red-500'
+                    // newPoll.question.trim() ? 'border-white/10 focus:ring-purple-500' : 'border-red-500/50 focus:ring-red-500'
+                    pollValidationAttempted && !newPoll.question.trim() ? 'border-red-500/50 focus:ring-red-500' : 'border-white/10 focus:ring-purple-500'
                   }`}
                 />
-                {!newPoll.question.trim() && (
+                {/* {!newPoll.question.trim() && ( */}
+                {pollValidationAttempted && !newPoll.question.trim() && (
                   <p className="text-red-400 text-xs mt-1">* Question is required</p>
                 )}
               </div>
@@ -479,7 +523,8 @@ const InstructorDashboard = () => {
                         value={option}
                         onChange={(e) => updatePollOption(idx, e.target.value)}
                         className={`flex-1 bg-zinc-800 border rounded-xl px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 ${
-                          option.trim() || idx >= 2 ? 'border-white/10 focus:ring-purple-500' : 'border-red-500/50 focus:ring-red-500'
+                          // option.trim() || idx >= 2 ? 'border-white/10 focus:ring-purple-500' : 'border-red-500/50 focus:ring-red-500'
+                          pollValidationAttempted && idx < 2 && !option.trim() ? 'border-red-500/50 focus:ring-red-500' : 'border-white/10 focus:ring-purple-500'
                         }`}
                       />
                       {newPoll.options.length > 2 && (
@@ -491,7 +536,8 @@ const InstructorDashboard = () => {
                         </button>
                       )}
                     </div>
-                    {idx < 2 && !option.trim() && (
+                    {/* {idx < 2 && !option.trim() && ( */}
+                    {pollValidationAttempted && idx < 2 && !option.trim() && (
                       <p className="text-red-400 text-xs mt-1">* At least 2 options required</p>
                     )}
                   </div>
@@ -509,6 +555,7 @@ const InstructorDashboard = () => {
                 onClick={() => {
                   setShowPollModal(false);
                   setNewPoll({ question: '', options: ['', ''] });
+                  setPollValidationAttempted(false);
                 }}
                 className="flex-1 px-4 py-2 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-colors"
               >
@@ -519,6 +566,95 @@ const InstructorDashboard = () => {
                 className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-500 transition-colors"
               >
                 Create Poll
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal */}
+      {showSubmissionsModal && selectedAssignment && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-white">Submissions for {selectedAssignment.title}</h2>
+                <p className="text-sm text-zinc-400 mt-1">{submissions.length} submission(s)</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSubmissionsModal(false);
+                  setSelectedAssignment(null);
+                  setSubmissions([]);
+                }}
+                className="text-zinc-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {submissions.length === 0 ? (
+                <div className="text-center py-12 text-zinc-500">
+                  No submissions yet for this assignment.
+                </div>
+              ) : (
+                submissions.map((submission) => (
+                  <div key={submission._id} className="bg-zinc-800/50 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-white font-semibold">
+                            {submission.student?.name || 'Unknown Student'}
+                          </h3>
+                          <span className="text-xs text-zinc-500">
+                            {submission.student?.email}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400">
+                          Submitted: {new Date(submission.submittedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      {submission.fileUrl && (
+                        <a
+                          href={submission.fileUrl}
+                          download
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors text-sm"
+                        >
+                          <Download size={14} />
+                          Download
+                        </a>
+                      )}
+                    </div>
+                    
+                    {submission.content && (
+                      <div className="mt-3 p-3 bg-zinc-900/50 rounded-lg">
+                        <p className="text-xs text-zinc-500 mb-1">Content:</p>
+                        <p className="text-sm text-zinc-300 whitespace-pre-wrap">{submission.content}</p>
+                      </div>
+                    )}
+                    
+                    {submission.fileName && (
+                      <div className="mt-2 flex items-center gap-2 text-sm text-zinc-400">
+                        <FileText size={14} />
+                        <span>{submission.fileName}</span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowSubmissionsModal(false);
+                  setSelectedAssignment(null);
+                  setSubmissions([]);
+                }}
+                className="px-6 py-2 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

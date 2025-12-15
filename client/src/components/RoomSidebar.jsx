@@ -89,15 +89,15 @@ const RoomSidebar = ({ ydoc, provider, roomName }) => {
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : ''}`}
                 >
-                   <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${isSelf ? 'bg-blue-500 text-white' : 'bg-zinc-700 text-zinc-300'}`}>
-                     {msg.sender?.charAt(msg.sender.length - 1) || '?'}
-                   </div>
-                   <div className="flex flex-col gap-1 max-w-[70%]">
-                     {!isSelf && <span className="text-xs text-zinc-500 px-2">{msg.sender}</span>}
-                     <div className={`p-3 rounded-2xl text-sm ${isSelf ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-zinc-800 text-zinc-300 rounded-tl-none border border-white/5'}`}>
+                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${isSelf ? 'bg-blue-500 text-white' : 'bg-zinc-700 text-zinc-300'}`}>
+                      {msg.sender?.charAt(msg.sender.length - 1) || '?'}
+                    </div>
+                    <div className="flex flex-col gap-1 max-w-[70%]">
+                      {!isSelf && <span className="text-xs text-zinc-500 px-2">{msg.sender}</span>}
+                      <div className={`p-3 rounded-2xl text-sm ${isSelf ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-zinc-800 text-zinc-300 rounded-tl-none border border-white/5'}`}>
                         {msg.text}
-                     </div>
-                   </div>
+                      </div>
+                    </div>
                 </motion.div>
               );
             })}
@@ -108,15 +108,15 @@ const RoomSidebar = ({ ydoc, provider, roomName }) => {
         {/* Input */}
         <form onSubmit={handleSendMessage} className="p-3 border-t border-white/5 bg-black/20">
           <div className="flex items-center gap-2 bg-zinc-800/50 border border-white/10 rounded-full px-4 py-2 focus-within:border-blue-500/50 transition-colors">
-             <input 
-               value={newMessage}
-               onChange={(e) => setNewMessage(e.target.value)}
-               className="bg-transparent border-none outline-none text-sm w-full placeholder:text-zinc-600 text-white" 
-               placeholder="Type a message..." 
-             />
-             <button type="submit" className="text-blue-500 hover:text-blue-400 transition-colors">
-               <Send size={18} />
-             </button>
+              <input 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-zinc-600 text-white" 
+                placeholder="Type a message..." 
+              />
+              <button type="submit" className="text-blue-500 hover:text-blue-400 transition-colors">
+                <Send size={18} />
+              </button>
           </div>
         </form>
       </div>

@@ -483,10 +483,10 @@ const VideoChat = ({ provider, ydoc, user, roomName }) => {
         {/* Remote Videos */}
         {Object.entries(remoteStreams).map(([peerId, stream]) => (
           <div key={peerId} className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-gradient-to-br from-purple-900/50 via-blue-900/50 to-pink-900/50">
-             <VideoPlayer stream={stream} peerId={peerId} />
-             <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">
-               {participantNames[peerId] || 'Loading...'}
-             </div>
+              <VideoPlayer stream={stream} peerId={peerId} />
+              <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">
+                {participantNames[peerId] || 'Loading...'}
+              </div>
           </div>
         ))}
       </div>

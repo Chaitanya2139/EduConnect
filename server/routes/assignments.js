@@ -126,6 +126,39 @@ router.patch('/:id/editability', authMiddleware, instructorOnly, async (req, res
   }
 });
 
+// Get submissions for an assignment (instructor only)
+router.get('/:id/submissions', authMiddleware, instructorOnly, async (req, res) => {
+  try {
+    const assignment = await Assignment.findById(req.params.id);
+    if (!assignment) {
+      return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    // Get student details for each submission
+    const submissionsWithDetails = await Promise.all(
+      assignment.submissions.map(async (submission) => {
+        const student = await User.findById(submission.studentId).select('name email username');
+        return {
+          _id: submission._id,
+          content: submission.description,
+          fileUrl: submission.fileUrl,
+          fileName: submission.fileName,
+          submittedAt: submission.submittedAt,
+          student: {
+            name: student?.name || student?.username || 'Unknown',
+            email: student?.email
+          }
+        };
+      })
+    );
+
+    res.json(submissionsWithDetails);
+  } catch (error) {
+    console.error('Error fetching submissions:', error);
+    res.status(500).json({ message: 'Error fetching submissions', error: error.message });
+  }
+});
+
 // Submit assignment (student only)
 router.post('/:id/submit', authMiddleware, async (req, res) => {
   try {
