@@ -177,7 +177,6 @@
 
 The project is configured for easy deployment to Vercel (frontend) and Render (backend).
 
-**Detailed deployment instructions:** See [QUICKSTART.md](QUICKSTART.md)
 
 ### Current Deployment
 - **Frontend**: [https://edu-connect-hazel.vercel.app/](https://edu-connect-hazel.vercel.app/)
@@ -207,8 +206,6 @@ EduConnect/
 │   ├── index.js          # Server entry point
 │   └── package.json
 │
-├── QUICKSTART.md         # Deployment guide
-├── DEPLOYMENT.md         # Detailed deployment docs
 └── README.md            # This file
 ```
 
